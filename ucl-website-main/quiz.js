@@ -508,6 +508,7 @@ let currentQuestionIndex = 0;
 let selectedQuestions = [];
 let selectedAnswer = null;
 let questionsAnswered = 0;
+let isAnswerSubmitted = false;//prevents selection after submit of answer
 
 // DOM Elements
 const pointsDisplay = document.getElementById('points');
@@ -521,11 +522,12 @@ const retryBtn = document.getElementById('retryBtn');
 const victoryRetryBtn = document.getElementById('victoryRetryBtn');
 
 // Initialize Game
-function initGame() {
+function initGame() {//needed variables reinitialized again with default values for every new game
     currentPoints = 10;
     currentQuestionIndex = 0;
     questionsAnswered = 0;
     selectedAnswer = null;
+    isAnswerSubmitted = false;
     
     // Select 10 random questions
     selectedQuestions = getRandomQuestions(10);
@@ -536,12 +538,12 @@ function initGame() {
     loadQuestion();
     
     // Hide modals
-    gameOverModal.classList.remove('active');
-    victoryModal.classList.remove('active');
+    gameOverModal.classList.remove('active');//makes active the conditionally rendered element
+    victoryModal.classList.remove('active');//the same
 }
 
 // Get Random Questions
-function getRandomQuestions(count) {
+function getRandomQuestions(count) {//get 10 question from the pool and it makes sure that there arent any repeating
     const shuffled = [...quizQuestions].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count);
 }
@@ -560,43 +562,54 @@ function createProgressCircles() {
 
 // Load Question
 function loadQuestion() {
-    if (currentQuestionIndex >= selectedQuestions.length) {
+    if (currentQuestionIndex >= selectedQuestions.length) {//if we have arrived at last question and proceed further show victory screen
         showVictory();
         return;
     }
     
-    const currentQuestion = selectedQuestions[currentQuestionIndex];
-    questionElement.textContent = currentQuestion.question;
+    const currentQuestion = selectedQuestions[currentQuestionIndex];//select the current question out of selected questions list
+    questionElement.textContent = currentQuestion.question;//update display
     
     // Load answers
     answerButtons.forEach((btn, index) => {
-        btn.textContent = currentQuestion.answers[index];
+        btn.textContent = currentQuestion.answers[index];//iterate over each answer in the answer list and display over the buttons
         btn.className = 'answer-btn';
         btn.disabled = false;
     });
     
-    selectedAnswer = null;
-    submitButton.disabled = true;
+    selectedAnswer = null;//must be selected in order to proceed further
+    isAnswerSubmitted = false;
+    submitButton.disabled = true;//cannnot submit if no question has been selected
 }
 
-// Handle Answer Selection
+// Handle Answer Selection - FIXED: Allow deselection and reselection
 answerButtons.forEach((btn, index) => {
     btn.addEventListener('click', () => {
-        if (selectedAnswer !== null) return;
+        // Prevent selection after answer is submitted
+        if (isAnswerSubmitted) return;
         
-        selectedAnswer = index;
-        
-        // Update UI
-        answerButtons.forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        submitButton.disabled = false;
+        // If clicking the same answer, deselect it
+        if (selectedAnswer === index) {
+            selectedAnswer = null;
+            btn.classList.remove('selected');
+            submitButton.disabled = true;
+        } else {
+            // Select new answer
+            selectedAnswer = index;
+            
+            // Update UI - remove all selections first
+            answerButtons.forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            submitButton.disabled = false;
+        }
     });
 });
 
 // Submit Answer
 submitButton.addEventListener('click', () => {
-    if (selectedAnswer === null) return;
-    
+    if (selectedAnswer === null || isAnswerSubmitted) return;
+    //cant listen for answers if either we havent selected any or its during the process of answer submission
+    isAnswerSubmitted = true;
     const currentQuestion = selectedQuestions[currentQuestionIndex];
     const isCorrect = selectedAnswer === currentQuestion.correct;
     
@@ -619,9 +632,11 @@ submitButton.addEventListener('click', () => {
     
     updatePoints();
     
-    // Mark progress circle as completed
+    // Mark progress circle as completed - FIXED: Always mark current question
     const circle = document.getElementById(`circle-${currentQuestionIndex}`);
-    circle.classList.add('completed');
+    if (circle) {
+        circle.classList.add('completed');
+    }
     
     questionsAnswered++;
     
